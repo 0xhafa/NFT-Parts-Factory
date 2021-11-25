@@ -1,0 +1,26 @@
+{
+  "name": "erc721-assignment",
+  "version": "1.0.0",
+  "description": "Create an ERC-721 standard based non-fungible token contract using development environment",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "truffle-assertions": "^0.9.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/albuquerque-rafael/ERC-721-Assigment.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/albuquerque-rafael/ERC-721-Assigment/issues"
+  },
+  "homepage": "https://github.com/albuquerque-rafael/ERC-721-Assigment#readme"
+}
