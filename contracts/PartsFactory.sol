@@ -107,16 +107,8 @@ contract PartsFactory is ERC721 {
         return partId;
     }
 
-function childrenPartId(uint tokenID) public view returns(uint256[] memory){
-    return  parts[tokenID].childrenPartId;
-}
-
-function childrenPartLenght(uint tokenID) public view returns(uint){
-    return  parts[tokenID].childrenPartId.length;
-}
-
-
     // Assembles `_partIds` and mints `newPartID` and tranfers it to msg.sender
+    //Improve: Denial of service - need to set approval for parts owners to remove their parts 
     function assembleParts(
         uint256 _newPartNumber,
         string memory _newPartName,
@@ -130,9 +122,7 @@ function childrenPartLenght(uint tokenID) public view returns(uint){
         require(_partIds.length <= 10, "Too many parts provided");
 
         uint256 newPartId = mintSinglePart(msg.sender, _newPartNumber, _newPartName, _newPartManufacturer);
-        //for (uint8 i=0; i < _partIds.length; i++){
-        //    parts[newPartId].childrenPartId.push(_partIds[i]);
-        //}
+
         parts[newPartId].childrenPartId = _partIds;
 
         for(uint8 i = 0; i < _partIds.length; i++) {
