@@ -24,7 +24,7 @@ contract('PartsFactory', (accounts) => {
         assert.equal(balance, 0);
         //Minting tokens to check balance[]
         for(let i=1; i <= 3; i++){
-            await pFactory.mintSinglePart(ownerAccount);
+            await pFactory.mintSinglePart(ownerAccount, i, `Part no ${i}`, `Manufacturer ${i}`);
             balance = await pFactory.balanceOf(ownerAccount);
             assert.equal(balance, i);
         }
@@ -51,7 +51,7 @@ contract('PartsFactory', (accounts) => {
         // revert sending token not owned
         await truffleAssert.reverts(pFactory.safeTransferFrom(ownerAccount, accounts[2], 2));
         // revert sending token to non ERC721Receiver address
-        await truffleAssert.reverts(pFactory.safeTransferFrom(ownerAccount, pFactory.address, 3));
+        await truffleAssert.reverts(pFactory.safeTransferFrom(ownerAccount, pFactory.address, 3, {gas: 1000000}));
     });
 
     //Check transferFrom()
@@ -95,5 +95,4 @@ contract('PartsFactory', (accounts) => {
             return ev.owner === ownerAccount && ev.operator === accounts[1] && ev.approved === true;
         })
     });
-
 })
