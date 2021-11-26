@@ -28,9 +28,7 @@ contract PartsFactory is ERC721 {
     mapping(uint256 => Part) public parts;
     TransferHelper transferHelper;
 
-    constructor() ERC721("PartsFactory","PF") {
-
-    }
+    constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) {}
 
     function requirePartAuthAndDisassembled(uint256 partId) private view {
         require(_isApprovedOrOwner(msg.sender, partId), "Not authorized to process this part");       
