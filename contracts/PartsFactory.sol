@@ -23,6 +23,7 @@ contract PartsFactory is ERC721 {
         bool inTransfer;
         uint256 parentPartId;
     }
+    
     using Counters for Counters.Counter;
     Counters.Counter private partsCounter;
     mapping(uint256 => Part) public parts;
