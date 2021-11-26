@@ -14,16 +14,17 @@ contract('PartsFactory', (accounts) => {
     it("Should set correct Name and Symbol", async function () {
         let name = await pFactory.name();
         let symbol = await pFactory.symbol();
-        assert.equal(name, "CarParts");
-        assert.equal(symbol, "CARP");
+        assert.equal(name, "PartsFactory");
+        assert.equal(symbol, "PF");
     });
 
     //Check balanceOf()
     it("Should display correct balance", async function () {
-        let balance;
+        let balance = await pFactory.balanceOf(ownerAccount);
+        assert.equal(balance, 0);
         //Minting tokens to check balance[]
         for(let i=1; i <= 3; i++){
-            await pFactory.mintPart(ownerAccount);
+            await pFactory.mintSinglePart(ownerAccount);
             balance = await pFactory.balanceOf(ownerAccount);
             assert.equal(balance, i);
         }
