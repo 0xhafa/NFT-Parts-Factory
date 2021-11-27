@@ -32,7 +32,7 @@ contract PartsFactory is ERC721 {
     }
 
     // partId to Part Struct
-    mapping(uint256 => Part) public parts;
+    mapping(uint256 => Part) private parts;
     TransferHelper transferHelper;
 
 
@@ -89,6 +89,15 @@ contract PartsFactory is ERC721 {
 
 
     /*------------------------FUNCTIONS-------------------------*/
+
+    //Return Part properties
+    function getPart(uint256 _partId) public view returns(Part memory){
+        return parts[_partId];
+    }
+
+    function getPartRelations(uint256 _partId) public view returns(uint256[] memory){
+        return parts[_partId].childrenPartId;
+    }
 
     // Mints `partId` and transfers it to `_owner`.
     function mintSinglePart(
