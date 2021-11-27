@@ -95,4 +95,30 @@ contract('PartsFactory', (accounts) => {
             return ev.owner === ownerAccount && ev.operator === accounts[1] && ev.approved === true;
         })
     });
+
+    //Should mintParts correctly
+
+    //Should show correct status for DISASSEMBLED parts
+
+    //Should mint assembledPart correctly
+
+    //Should show correct status for ASSEMBLED parts
+
+    //Should remove part from two-sized assembly correctly
+    
+    //Should remove part from n>2 size assembly correctly
+
+    //Should disassemble All correctly
+
+    //Should revert when trying to disassemble not authourized part
+
+    //Should revert when trying to assemble not authorized part
+
+    //Should add part to assembledPart correctly
+
+    //Should revert when trying to transfer ASSEMBLED part
+
+    //Should revert when trying to approve ASSEMBLED part
+
+    //Should tranfers all childrenParts when ASSEMBLED part is transfered
 })

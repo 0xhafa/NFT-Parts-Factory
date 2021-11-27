@@ -200,7 +200,6 @@ contract PartsFactory is ERC721 {
     }
 
     // Remove `_partId` from `_assemblyPartId`
-    // Improve: work for two-size assembly as well  
     function removeFromAssembly(
         uint256 _assemblyPartId,
         uint256 _partId
@@ -209,19 +208,33 @@ contract PartsFactory is ERC721 {
         isAuthorized(_assemblyPartId)
         isDisassembled(_assemblyPartId)
         {
-        //Call disassemblePart() if part has only 2 parts assembled
-        require(parts[_assemblyPartId].childrenPartId.length > 2, "Call disassemblePart() instead");
-
         bool found;
         uint256 length = parts[_assemblyPartId].childrenPartId.length;
-        for(uint8 i = 0; i < length; i++) {
-            if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
-                found = true;
-                parts[_assemblyPartId].childrenPartId[i] = parts[_assemblyPartId].childrenPartId[length - 1];
-                parts[_assemblyPartId].childrenPartId.pop();
-                parts[_partId].status = AssemblyStatus.DISASSEMBLED;
-                parts[_partId].parentPartId = 0;
-                break;
+        // If `_assemblyPartId` has only 2 parts disassemble all
+        if(parts[_assemblyPartId].childrenPartId.length == 2) { 
+            for(uint8 i = 0; i < length; i++) {
+                if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
+                    found = true;
+                    break;
+                } if(found) {
+                    for(uint8 j = 0; j < length; j++) {
+                        parts[parts[_assemblyPartId].childrenPartId[j]].status = AssemblyStatus.DISASSEMBLED;
+                        parts[parts[_assemblyPartId].childrenPartId[j]].parentPartId = 0;
+                    }
+                }
+            }
+        }
+        // Else disassemble only `_partId`
+        else {
+            for(uint8 i = 0; i < length; i++) {
+                if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
+                    found = true;
+                    parts[_assemblyPartId].childrenPartId[i] = parts[_assemblyPartId].childrenPartId[length - 1];
+                    parts[_assemblyPartId].childrenPartId.pop();
+                    parts[_partId].status = AssemblyStatus.DISASSEMBLED;
+                    parts[_partId].parentPartId = 0;
+                    break;
+                }
             }
         }
         require(found, "Part not found on the list of children");
