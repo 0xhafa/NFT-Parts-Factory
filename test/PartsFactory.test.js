@@ -259,4 +259,60 @@ contract('PartsFactory', (accounts) => {
         assert.equal(await pFactory.ownerOf(3), accounts[1]);
     });
 
+    //Revert when mint with no name, partNumber or manufacturer
+    it("Should revert when mint with no name, partNumber or manufacturer", async function () {
+        await truffleAssert.reverts(pFactory.mintSinglePart(ownerAccount, 0, `Part no 1`, `Manufacturer 1`),
+            "Part number shouldn't be 0"
+        );
+        await truffleAssert.reverts(pFactory.mintSinglePart(ownerAccount, 1, '', `Manufacturer 1`),
+            "Assign a name for the new part"
+        );
+        await truffleAssert.reverts(pFactory.mintSinglePart(ownerAccount, 1, `Part no 1`, ''),
+            "Assign a manufacturer for the new part"
+        );
+    });
+
+    //Revert when assemble parts from different owners
+    it("Should revert when trying to assemble parts from different owners", async function () {
+        await pFactory.mintSinglePart(ownerAccount, 1, `Part no 8`, `Manufacturer 1`);
+        await pFactory.mintSinglePart(accounts[1], 1, `Part no 9`, `Manufacturer 1`);
+        await pFactory.approve(accounts[1], 8);
+        await truffleAssert.reverts(pFactory.assembleParts(101, `Assembled Part`, `Manufacturer`, [8,9], {from:accounts[1]}),
+            "All the parts must have the same owner"
+        );
+    });
+
+    it("Should revert when trying to assemble parts not assembled", async function () {
+        await truffleAssert.reverts(pFactory.disassemblePart(8, {from: accounts[1]}),
+            "Part not assembled"
+        );
+    });
+
+    it("Should reverts when trying to AddToAssembly parts not owned ", async function () {
+        await truffleAssert.reverts(pFactory.addToAssembly(6, [8], {from: accounts[1]}),
+            "Assembly and parts owner don't match"
+        );
+    });
+
+    it("Should reverts when trying to AddToAssembly providing no parts ", async function () {
+        await truffleAssert.reverts(pFactory.addToAssembly(6,[], {from: accounts[1]}),
+            "Provide at least one part to add to assembly"
+        );
+    });
+
+    it("Should reverts when trying to assembleParts with more than 10 parts ", async function () {
+        for(let i=1; i <= 11; i++){
+            await truffleAssert.passes(pFactory.mintSinglePart(ownerAccount, i, `Part no ${i}`, `Manufacturer ${i}`));
+        }
+        await truffleAssert.reverts(pFactory.assembleParts(100, `Assembled Part`, `Manufacturer`, [10,11,12,13,14,15,16,17,18,19,20]),
+            "Too many parts provided."
+        );
+    });
+
+    it("Should reverts when trying to addToAssembly more than 10 parts ", async function () {
+        await pFactory.assembleParts(100, `Assembled Part`, `Manufacturer`, [10,11,12,13,14,15,16,17,18,19]);
+        await truffleAssert.reverts(pFactory.addToAssembly(21,[20]),
+            "Too many children"
+        );
+    });
 })
