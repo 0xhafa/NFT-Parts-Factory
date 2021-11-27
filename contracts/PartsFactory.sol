@@ -25,7 +25,7 @@ contract PartsFactory is ERC721 {
         uint256[] childrenPartId;
     }
 
-    // ?
+    // Transfer status helper structure
     struct TransferHelper {
         bool inTransfer;
         uint256 parentPartId;
@@ -40,7 +40,11 @@ contract PartsFactory is ERC721 {
 
     /*--------------------------EVENTS---------------------------*/
 
-    event newPart(address _owner, uint256 _partNumber, string _name, string _manufacturer, uint256 partId);
+    event newPart(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
+    event partAssembled(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
+    event partDisassembled(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
+    event partAddedToAssembly(address indexed _owner, uint256 indexed _parentPartId, uint256 indexed _partId);
+    event partRemovedFromAssembly(address indexed _owner, uint256 indexed _parentPartId, uint256 indexed _partId);
 
     /*------------------------MODIFIERS-------------------------*/
 
@@ -55,18 +59,29 @@ contract PartsFactory is ERC721 {
     // Checks if all parts are disassembled
     modifier areDisassembled(uint256[] memory _partIds) {
         for(uint8 i = 0; i < _partIds.length; i++) {
-            require(parts[_partIds[i]].status == AssemblyStatus.DISASSEMBLED, "Parts constrained");       
+            require(parts[_partIds[i]].status == AssemblyStatus.DISASSEMBLED, "One or more parts constrained");       
         }
         _;
     }
 
+    // Checks if all parts have the same owner
+    modifier haveSameOwner(uint256[] memory _partIds) {
+        address prevOwner;
+        for(uint8 i = 0; i < _partIds.length; i++) {
+            address currOwner = ownerOf(_partIds[i]);
+            require(currOwner == prevOwner || prevOwner == address(0), "All the parts must have the same owner");
+            prevOwner = currOwner;
+        }
+        _;
+    }    
+
     // Checks if msg.sender is authorized to assemble part
     modifier isAuthorized(uint256 _partId) {   
-        require(_isApprovedOrOwner(msg.sender, _partId), "Not authorized to process this part");       
+        require(_isApprovedOrOwner(msg.sender, _partId), "Not authorized to move this part");       
         _;
     }
 
-    // Checks if all part are disassembled
+    // Checks if part is disassembled
     modifier isDisassembled(uint256  _partId) {
         require(parts[_partId].status == AssemblyStatus.DISASSEMBLED, "Part constrained");       
         _;
@@ -102,13 +117,12 @@ contract PartsFactory is ERC721 {
         parts[partId] = part;
         _mint(_owner, partId);
 
-        emit newPart(_owner, _partNumber, _name, _manufacturer, partId);
+        emit newPart(_owner, _partNumber, partId);
 
         return partId;
     }
 
     // Assembles `_partIds` and mints `newPartID` and tranfers it to msg.sender
-    //Improve: Denial of service - need to set approval for parts owners to remove their parts 
     function assembleParts(
         uint256 _newPartNumber,
         string memory _newPartName,
@@ -117,11 +131,13 @@ contract PartsFactory is ERC721 {
     )   public 
         areAuthorized(_partIds)
         areDisassembled(_partIds)
+        haveSameOwner(_partIds)
         returns (uint256) {
         require(_partIds.length > 1, "Provide more than one part to assemble");
         require(_partIds.length <= 10, "Too many parts provided");
 
-        uint256 newPartId = mintSinglePart(msg.sender, _newPartNumber, _newPartName, _newPartManufacturer);
+        address owner = ownerOf(_partIds[0]);
+        uint256 newPartId = mintSinglePart(owner, _newPartNumber, _newPartName, _newPartManufacturer);
 
         parts[newPartId].childrenPartId = _partIds;
 
@@ -130,6 +146,7 @@ contract PartsFactory is ERC721 {
             parts[_partIds[i]].parentPartId = newPartId;
         }
 
+        emit partAssembled(owner, _newPartNumber, newPartId);
         return newPartId;
     }
 
@@ -150,6 +167,8 @@ contract PartsFactory is ERC721 {
             parts[parts[_partId].childrenPartId[i]].parentPartId = 0;
         }
 
+        emit partDisassembled(ownerOf(_partId), parts[_partId].partNumber, _partId);
+
         _burn(_partId);
         delete parts[_partId];
         return disassembledPartIds;
@@ -164,13 +183,19 @@ contract PartsFactory is ERC721 {
         isAuthorized(_assemblyPartId)
         areDisassembled(_partIds)
         isDisassembled(_assemblyPartId)
+        haveSameOwner(_partIds)
         {
-        require(parts[_assemblyPartId].childrenPartId.length < 10, "Too many children");
+        address owner = ownerOf(_assemblyPartId);
+        require(_partIds.length >= 1, "Provide at least than one part to add to assembly");
+        require(parts[_assemblyPartId].childrenPartId.length + _partIds.length <= 10, "Too many children");
+        require(owner == ownerOf(_partIds[0]), "Assembly and parts owner don't match");
 
         for(uint8 i=0; i < _partIds.length; i++) {
             parts[_assemblyPartId].childrenPartId.push(_partIds[i]);
             parts[_partIds[i]].status = AssemblyStatus.ASSEMBLED;
             parts[_partIds[i]].parentPartId = _assemblyPartId;
+
+            emit partAddedToAssembly(owner, _assemblyPartId, _partIds[i]);
         }
     }
 
@@ -200,6 +225,7 @@ contract PartsFactory is ERC721 {
             }
         }
         require(found, "Part not found on the list of children");
+        emit partRemovedFromAssembly(ownerOf(_assemblyPartId), _assemblyPartId, _partId);
     }
 
     function _beforeTokenTransfer(
