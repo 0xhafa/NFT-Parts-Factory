@@ -186,7 +186,7 @@ contract PartsFactory is ERC721 {
         haveSameOwner(_partIds)
         {
         address owner = ownerOf(_assemblyPartId);
-        require(_partIds.length >= 1, "Provide at least than one part to add to assembly");
+        require(_partIds.length >= 1, "Provide at least one part to add to assembly");
         require(parts[_assemblyPartId].childrenPartId.length + _partIds.length <= 10, "Too many children");
         require(owner == ownerOf(_partIds[0]), "Assembly and parts owner don't match");
 
@@ -203,43 +203,52 @@ contract PartsFactory is ERC721 {
     function removeFromAssembly(
         uint256 _assemblyPartId,
         uint256 _partId
-    )   public
-        isAuthorized(_partId)
-        isAuthorized(_assemblyPartId)
-        isDisassembled(_assemblyPartId)
-        {
-        bool found;
-        uint256 length = parts[_assemblyPartId].childrenPartId.length;
-        // If `_assemblyPartId` has only 2 parts disassemble all
-        if(parts[_assemblyPartId].childrenPartId.length == 2) { 
-            for(uint8 i = 0; i < length; i++) {
-                if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
-                    found = true;
-                    break;
-                } if(found) {
+        )   public
+            isAuthorized(_partId)
+            isAuthorized(_assemblyPartId)
+            isDisassembled(_assemblyPartId)
+            returns(uint256[] memory disassembledPartIds) {
+            bool found;
+            uint256 length = parts[_assemblyPartId].childrenPartId.length;
+            // If `_assemblyPartId` has only 2 parts disassemble all
+            if(parts[_assemblyPartId].childrenPartId.length == 2) { 
+                for(uint8 i = 0; i < length; i++) {
+                    if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
+                        found = true;
+                        break;
+                    }
+                }
+                if(found) {
+                    disassembledPartIds = new uint256[](length);
                     for(uint8 j = 0; j < length; j++) {
+                        disassembledPartIds[j] = parts[_assemblyPartId].childrenPartId[j];
                         parts[parts[_assemblyPartId].childrenPartId[j]].status = AssemblyStatus.DISASSEMBLED;
                         parts[parts[_assemblyPartId].childrenPartId[j]].parentPartId = 0;
                     }
+                    _burn(_assemblyPartId);
+                    delete parts[_assemblyPartId];
+                    return disassembledPartIds;
                 }
             }
-        }
-        // Else disassemble only `_partId`
-        else {
-            for(uint8 i = 0; i < length; i++) {
-                if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
-                    found = true;
-                    parts[_assemblyPartId].childrenPartId[i] = parts[_assemblyPartId].childrenPartId[length - 1];
-                    parts[_assemblyPartId].childrenPartId.pop();
-                    parts[_partId].status = AssemblyStatus.DISASSEMBLED;
-                    parts[_partId].parentPartId = 0;
-                    break;
+            // Else disassemble only `_partId`
+            else {
+                disassembledPartIds = new uint256[](length);
+                for(uint8 i = 0; i < length; i++) {
+                    if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
+                        disassembledPartIds[0] = parts[_assemblyPartId].childrenPartId[i];
+                        found = true;
+                        parts[_assemblyPartId].childrenPartId[i] = parts[_assemblyPartId].childrenPartId[length - 1];
+                        parts[_assemblyPartId].childrenPartId.pop();
+                        parts[_partId].status = AssemblyStatus.DISASSEMBLED;
+                        parts[_partId].parentPartId = 0;
+                        break;
+                    }
                 }
+                return disassembledPartIds;
             }
+            require(found, "Part not found on the list of children");
+            emit partRemovedFromAssembly(ownerOf(_assemblyPartId), _assemblyPartId, _partId);
         }
-        require(found, "Part not found on the list of children");
-        emit partRemovedFromAssembly(ownerOf(_assemblyPartId), _assemblyPartId, _partId);
-    }
 
     function _beforeTokenTransfer(
         address from,
