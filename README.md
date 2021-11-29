@@ -23,7 +23,7 @@ Dhruvin Parikh
 Besides functions from [ERC721 standard](https://eips.ethereum.org/EIPS/eip-721), the contract implement the following functions: 
 
 1. **`mintSinglePart`** - Mints `partId` and transfers it to `_owner`.\
-1. **`assembleParts`** - Assembles `_partIds` and mints `newPartID` and tranfers to `msg.sender`.\
+1. **`assembleParts`** - Assembles `_partIds` and mints `newPartID`.\
 1. **`disassemblePart`** - Disassembled children parts from `_partId`.\
 1. **`addToAssembly`** - Adds `_partIds` to `_assemblyPartId` children parts.\
 1. **`removeFromAssembly`** - Remove `_partId` from `_assemblyPartId`.\ 
