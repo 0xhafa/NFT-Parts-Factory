@@ -5,8 +5,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-// transferring all children with parent
-
 contract PartsFactory is ERC721 {
     
     using Counters for Counters.Counter;
@@ -40,11 +38,11 @@ contract PartsFactory is ERC721 {
 
     /*--------------------------EVENTS---------------------------*/
 
-    event newPart(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
-    event partAssembled(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
-    event partDisassembled(address indexed _owner, uint256 indexed _partNumber, uint256 indexed _partId);
-    event partAddedToAssembly(address indexed _owner, uint256 indexed _parentPartId, uint256 indexed _partId);
-    event partRemovedFromAssembly(address indexed _owner, uint256 indexed _parentPartId, uint256 indexed _partId);
+    event newPart(address indexed owner, uint256 indexed partNumber, uint256 indexed partId);
+    event partAssembled(address indexed owner, uint256 indexed partNumber, uint256 indexed partId);
+    event partDisassembled(address indexed owner, uint256 indexed partNumber, uint256 indexed parentPartId, uint256[] partIds);
+    event partAddedToAssembly(address indexed owner, uint256 indexed parentPartId, uint256 indexed partId);
+    event partRemovedFromAssembly(address indexed owner, uint256 indexed parentPartId, uint256 indexed partId);
 
     /*------------------------MODIFIERS-------------------------*/
 
@@ -91,12 +89,12 @@ contract PartsFactory is ERC721 {
     /*------------------------FUNCTIONS-------------------------*/
 
     //Return Part properties
-    function getPart(uint256 _partId) public view returns(Part memory){
-        return parts[_partId];
+    function getPartProperties(uint256 _partId) public view returns(uint256, string memory, string memory, AssemblyStatus){
+        return (parts[_partId].partNumber, parts[_partId].name, parts[_partId].manufacturer, parts[_partId].status);
     }
 
-    function getPartRelations(uint256 _partId) public view returns(uint256[] memory){
-        return parts[_partId].childrenPartId;
+    function getPartRelations(uint256 _partId) public view returns(uint256, uint256[] memory){
+        return (parts[_partId].parentPartId, parts[_partId].childrenPartId);
     }
 
     // Mints `partId` and transfers it to `_owner`.
@@ -105,9 +103,7 @@ contract PartsFactory is ERC721 {
         uint256 _partNumber,
         string memory _name,
         string memory _manufacturer
-    )   public
-        returns (uint256)
-    {
+    )   public {
         require(_partNumber != 0, "Part number shouldn't be 0");
         require(bytes(_name).length > 0, "Assign a name for the new part");
         require(bytes(_manufacturer).length > 0, "Assign a manufacturer for the new part");
@@ -127,8 +123,6 @@ contract PartsFactory is ERC721 {
         _mint(_owner, partId);
 
         emit newPart(_owner, _partNumber, partId);
-
-        return partId;
     }
 
     // Assembles `_partIds` and mints `newPartID` and tranfers it to msg.sender
@@ -140,13 +134,13 @@ contract PartsFactory is ERC721 {
     )   public 
         areAuthorized(_partIds)
         areDisassembled(_partIds)
-        haveSameOwner(_partIds)
-        returns (uint256) {
+        haveSameOwner(_partIds) {
         require(_partIds.length > 1, "Provide more than one part to assemble");
         require(_partIds.length <= 10, "Too many parts provided");
 
         address owner = ownerOf(_partIds[0]);
-        uint256 newPartId = mintSinglePart(owner, _newPartNumber, _newPartName, _newPartManufacturer);
+        mintSinglePart(owner, _newPartNumber, _newPartName, _newPartManufacturer);
+        uint256 newPartId = partsCounter.current();
 
         parts[newPartId].childrenPartId = _partIds;
 
@@ -156,7 +150,6 @@ contract PartsFactory is ERC721 {
         }
 
         emit partAssembled(owner, _newPartNumber, newPartId);
-        return newPartId;
     }
 
     // Disassembled children parts from `_partId`
@@ -164,8 +157,7 @@ contract PartsFactory is ERC721 {
         uint256 _partId
     )   public 
         isAuthorized(_partId)
-        isDisassembled(_partId)
-        returns (uint256[] memory) {
+        isDisassembled(_partId) {
         require(parts[_partId].childrenPartId.length > 0, "Part not assembled");
 
         uint256 length = parts[_partId].childrenPartId.length;
@@ -176,11 +168,10 @@ contract PartsFactory is ERC721 {
             parts[parts[_partId].childrenPartId[i]].parentPartId = 0;
         }
 
-        emit partDisassembled(ownerOf(_partId), parts[_partId].partNumber, _partId);
+        emit partDisassembled(ownerOf(_partId), parts[_partId].partNumber, _partId, disassembledPartIds);
 
         _burn(_partId);
         delete parts[_partId];
-        return disassembledPartIds;
     }
 
     // Adds `_partIds` to `_assemblyPartId` children parts 
@@ -215,48 +206,28 @@ contract PartsFactory is ERC721 {
         )   public
             isAuthorized(_partId)
             isAuthorized(_assemblyPartId)
-            isDisassembled(_assemblyPartId)
-            returns(uint256[] memory disassembledPartIds) {
+            isDisassembled(_assemblyPartId) {
             bool found;
             uint256 length = parts[_assemblyPartId].childrenPartId.length;
             // If `_assemblyPartId` has only 2 parts disassemble all
-            if(parts[_assemblyPartId].childrenPartId.length == 2) { 
-                for(uint8 i = 0; i < length; i++) {
-                    if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
-                        found = true;
-                        break;
-                    }
-                }
-                if(found) {
-                    disassembledPartIds = new uint256[](length);
-                    for(uint8 j = 0; j < length; j++) {
-                        disassembledPartIds[j] = parts[_assemblyPartId].childrenPartId[j];
-                        parts[parts[_assemblyPartId].childrenPartId[j]].status = AssemblyStatus.DISASSEMBLED;
-                        parts[parts[_assemblyPartId].childrenPartId[j]].parentPartId = 0;
-                    }
-                    _burn(_assemblyPartId);
-                    delete parts[_assemblyPartId];
-                    return disassembledPartIds;
-                }
+            if(length == 2) { 
+                disassemblePart(_assemblyPartId);
             }
             // Else disassemble only `_partId`
             else {
-                disassembledPartIds = new uint256[](length);
                 for(uint8 i = 0; i < length; i++) {
                     if(parts[_assemblyPartId].childrenPartId[i] == _partId) {
-                        disassembledPartIds[0] = parts[_assemblyPartId].childrenPartId[i];
-                        found = true;
                         parts[_assemblyPartId].childrenPartId[i] = parts[_assemblyPartId].childrenPartId[length - 1];
                         parts[_assemblyPartId].childrenPartId.pop();
                         parts[_partId].status = AssemblyStatus.DISASSEMBLED;
                         parts[_partId].parentPartId = 0;
+                        found = true;
                         break;
                     }
                 }
-                return disassembledPartIds;
+                require(found, "Part not found on the list of children");
+                emit partRemovedFromAssembly(ownerOf(_assemblyPartId), _assemblyPartId, _partId);
             }
-            require(found, "Part not found on the list of children");
-            emit partRemovedFromAssembly(ownerOf(_assemblyPartId), _assemblyPartId, _partId);
         }
 
     function _beforeTokenTransfer(
